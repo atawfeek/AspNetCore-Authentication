@@ -1,0 +1,30 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30128.74
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{78A7346C-E505-470B-B5BD-BDB85C683562}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AspNetCore.Authentication.Web", "src\Api\AspNetCore.Authentication.Web.csproj", "{3179CD4F-BE1C-4236-A34B-7B19DAE11838}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3179CD4F-BE1C-4236-A34B-7B19DAE11838}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3179CD4F-BE1C-4236-A34B-7B19DAE11838}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3179CD4F-BE1C-4236-A34B-7B19DAE11838}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3179CD4F-BE1C-4236-A34B-7B19DAE11838}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{3179CD4F-BE1C-4236-A34B-7B19DAE11838} = {78A7346C-E505-470B-B5BD-BDB85C683562}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {128DAC1D-E7AF-4555-94AE-1EB2C31223E3}
+	EndGlobalSection
+EndGlobal
