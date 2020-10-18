@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AspNetCore.Authentication.Web.Controllers
 {
-    [Route("login")]
+    [Route("api/auth")]
     [ApiController]
     public class AuthController : ControllerBase
     {
@@ -21,14 +21,13 @@ namespace AspNetCore.Authentication.Web.Controllers
             {
                 return BadRequest("Invalid client request");
             }
-            if (user.UserName == "johndoe" && user.Password == "def@123")
-            {   
-                return Ok(new { Token = _issuer.IssueAccessToken() });
-            }
-            else
+            var validCredentials = true; //validate user.UserName and user.Password here!
+            if (!validCredentials)
             {
                 return Unauthorized();
             }
+
+            return Ok(new { Token = _issuer.IssueAccessToken() });
         }
     }
 }
