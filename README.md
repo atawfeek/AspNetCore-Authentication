@@ -1,5 +1,6 @@
 # AspNetCore-Authentication
 
+### Part (1)
 https://code-maze.com/authentication-aspnetcore-jwt-1/
 
 **The Big Picture**
@@ -287,4 +288,5 @@ And for headers, we have to select Content-Type for the key and application/json
 
 In the response section, we are going to see a 200 OK response with the JWT string in the response body:[![](RackMultipart20201018-4-1t03ge6_html_c33e6bfc87fb0dcf.png)](https://code-maze.com/wp-content/uploads/2019/11/02-Postam-Jwt-Response.png)
 
+### Part (2)
 https://code-maze.com/using-refresh-tokens-in-asp-net-core-authentication/
