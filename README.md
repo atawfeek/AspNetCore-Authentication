@@ -297,7 +297,7 @@ https://code-maze.com/using-refresh-tokens-in-asp-net-core-authentication/
 
 Let&#39;s look at the JWT based authentication workflow that we implemented in the previous parts of this series:
 
-[![](RackMultipart20201018-4-1r1b58s_html_8c66e981a472071e.png)](https://code-maze.com/wp-content/uploads/2020/06/jwt-access-token-flow-e1592744064613.png)
+![GitHub Logo](/img/accessrefreshtoken-diagram.png)
 
 1. First, the client authenticates with the authentication component by providing the credentials.
 2. Then, the authentication component issues the access token.
@@ -314,7 +314,7 @@ Refresh tokens are credentials that can be used to acquire new access tokens. Wh
 
 Now, we are going to introduce the refresh token to our authentication workflow:
 
-![GitHub Logo](/img/refreshtoken-diagram.png)
+![GitHub Logo](/img/accessrefreshtoken-diagram.png)
 
 1. First, the client authenticates with the authentication component by providing the credentials.
 2. Then, the authentication component issues the access token and the refresh token.
@@ -325,8 +325,6 @@ Now, we are going to introduce the refresh token to our authentication workflow:
 7. The authentication component issues a new access token and refresh token.
 8. Steps 3 through 7 keeps on repeating until the refresh token expires.
 9. Once the refresh token expires, the client needs to authenticate with the authentication server once again and the flow repeats from step 1.
-
-![GitHub Logo](/img/accessrefreshtoken-diagram.png)
 
 Now, let&#39;s discuss why we actually need refresh tokens.
 
