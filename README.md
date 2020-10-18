@@ -324,6 +324,8 @@ Now, we are going to introduce the refresh token to our authentication workflow:
 8. Steps 3 through 7 keeps on repeating until the refresh token expires.
 9. Once the refresh token expires, the client needs to authenticate with the authentication server once again and the flow repeats from step 1.
 
+![GitHub Logo](/img/accessrefreshtoken-diagram.png)
+
 Now, let&#39;s discuss why we actually need refresh tokens.
 
 ## The Need for Refresh Tokens
