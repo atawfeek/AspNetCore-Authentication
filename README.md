@@ -101,47 +101,29 @@ For the sake of simplicity, we are going to add all the code inside the Configur
 
 We need to modify the ConfigureServices method to add the JWT support:
 
-    public void ConfigureServices**(**IServiceCollection services**)**
+    public void ConfigureServices(IServiceCollection services)
+    {
+        services.AddAuthentication(opt => {
+            opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
 
-    **{**
+                ValidIssuer = "http://localhost:5000",
+                ValidAudience = "http://localhost:5000",
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("superSecretKey@345"))
+            };
+        });
 
-    services.AddAuthentication**(**opt = **\&gt;**** {**
-
-    opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-
-    opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-
-    **})**
-
-    .AddJwtBearer**(**options = **\&gt;**
-
-    **{**
-
-    options.TokenValidationParameters = new TokenValidationParameters
-
-    **{**
-
-    ValidateIssuer = true,
-
-    ValidateAudience = true,
-
-    ValidateLifetime = true,
-
-    ValidateIssuerSigningKey = true,
-
-    ValidIssuer = &quot;http://localhost:5000&quot;,
-
-    ValidAudience = &quot;http://localhost:5000&quot;,
-
-    IssuerSigningKey = newSymmetricSecurityKey**(**Encoding.UTF8.GetBytes**(**&quot;superSecretKey@345&quot;**))**
-
-    **}** ;
-
-    **})**;
-
-    services.AddControllers**()**;
-
-    **}**
+        services.AddControllers();
+    }
 
 We have to install the Microsoft.AspNetCore.Authentication.JwtBearer library in order for this to work.
 
@@ -166,35 +148,25 @@ We need to do one more step to make our authentication middleware available to t
 
 Add the app.UseAuthentication() in the Configure method:
 
-publicvoidConfigure**(**IApplicationBuilder app, IWebHostEnvironment env**)**
+    public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+    {
+        if (env.IsDevelopment())
+        {
+            app.UseDeveloperExceptionPage();
+        }
 
-**{**
+        app.UseHttpsRedirection();
 
-if**(**env.IsDevelopment**())**
+        app.UseRouting();
 
-**{**
+        app.UseAuthentication();
+        app.UseAuthorization();
 
-app.UseDeveloperExceptionPage**()**;
-
-**}**
-
-app.UseHttpsRedirection**()**;
-
-app.UseRouting**()**;
-
-app.UseAuthentication**()**;
-
-app.UseAuthorization**()**;
-
-app.UseEndpoints**(**endpoints = **\&gt;**
-
-**{**
-
-endpoints.MapControllers**()**;
-
-**})**;
-
-**}**
+        app.UseEndpoints(endpoints =>
+        {
+            endpoints.MapControllers();
+        });
+    }
 
 And that&#39;s all we need to configure the JWT authentication in ASP.NET Core.
 
@@ -206,27 +178,18 @@ Now let&#39;s add an empty CustomersController in the Controllers folders. Insid
 
 Let&#39;s modify the CustomersController class:
 
-**[**Route**(**&quot;api/[controller]&quot;**)]**
+    [Route("api/[controller]")]
+    [ApiController]
+    public class CustomersController : ControllerBase
+    {
+        // GET api/values
+        [HttpGet,Authorize]
+        public IEnumerable<string> Get()
+        {
+         return new string[] { "John Doe", "Jane Doe" };
+        }
 
-**[**ApiController**]**
-
-publicclass CustomersController : ControllerBase
-
-**{**
-
-// GET api/values
-
-**[**HttpGet,Authorize**]**
-
-public IEnumerable **\&lt;** string **\&gt;** Get**()**
-
-**{**
-
-returnnew string**[]****{ **&quot;John Doe&quot;, &quot;Jane Doe&quot;** }**;
-
-**}**
-
-**}**
+    }
 
 Authorize attribute on top of the  **GET ** method restricts access to only authorized users. Only users who are logged-in can access the list of customers. Therefore, this time if you make a request to http://localhost:5000/api/customers from the browser&#39;s address bar, instead of getting a list of customers, you are going to get a 401 Not Authorized response.
 
@@ -238,83 +201,51 @@ To authenticate anonymous users, we have to provide a login endpoint so the user
 
 In addition, before we start implementing the authentication controller we need to add a LoginModel to hold user&#39;s credentials on the server. LoginModel is a simple class that contains two properties: UserName and Password.  We are going to create a Models folder in the root directory and inside it a LoginModel class:
 
-publicclass LoginModel
-
-**{**
-
-public string UserName **{** get; set; **}**
-
-public string Password **{** get; set; **}**
-
-**}**
+    public class LoginModel
+    {
+        public string UserName { get; set; }
+        public string Password { get; set; }
+    }
 
 Now let&#39;s create the AuthController inside the Controllers folder. Inside the AuthControllerwe are going to validate the user&#39;s credentials. If the credentials are valid, we are going to issue a JSON web token. For this demo, we are going to hardcode the username and password to implement a fake user. After validating the user&#39;s credentials we are going to generate a JWT with a secret key. JWT uses the secret key to generate the signature.
 
 Let&#39;s implement the AuthController:
 
-**[**Route**(**&quot;api/auth&quot;**)]**
+    [Route("api/auth")]
+    [ApiController]
+    public class AuthController : ControllerBase
+    {
+        // GET api/values
+        [HttpPost, Route("login")]
+        public IActionResult Login([FromBody]LoginModel user)
+        {
+            if (user == null)
+            {
+                return BadRequest("Invalid client request");
+            }
 
-**[**ApiController**]**
+            if (user.UserName == "johndoe" && user.Password == "def@123")
+            {
+                var secretKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("superSecretKey@345"));
+                var signinCredentials = new SigningCredentials(secretKey, SecurityAlgorithms.HmacSha256);
 
-publicclass AuthController : ControllerBase
+                var tokeOptions = new JwtSecurityToken(
+                    issuer: "http://localhost:5000",
+                    audience: "http://localhost:5000",
+                    claims: new List<Claim>(),
+                    expires: DateTime.Now.AddMinutes(5),
+                    signingCredentials: signinCredentials
+                );
 
-**{**
-
-// GET api/values
-
-**[**HttpPost, Route**(**&quot;login&quot;**)]**
-
-public IActionResult Login**([**FromBody**]**LoginModel user**)**
-
-**{**
-
-if**(**user == null**)**
-
-**{**
-
-returnBadRequest**(**&quot;Invalid client request&quot;**)**;
-
-**}**
-
-if**(**user.UserName == &quot;johndoe&quot; &amp;&amp; user.Password == &quot;def@123&quot;**)**
-
-**{**
-
-var secretKey = newSymmetricSecurityKey**(**Encoding.UTF8.GetBytes**(**&quot;superSecretKey@345&quot;**))**;
-
-var signinCredentials = newSigningCredentials**(**secretKey, SecurityAlgorithms.HmacSha256**)**;
-
-var tokeOptions = newJwtSecurityToken**(**
-
-issuer: &quot;http://localhost:5000&quot;,
-
-audience: &quot;http://localhost:5000&quot;,
-
-claims: new List **\&lt;** Claim**\&gt;()**,
-
-expires: DateTime.Now.AddMinutes**(**5**)**,
-
-signingCredentials: signinCredentials
-
-**)**;
-
-var tokenString = newJwtSecurityTokenHandler**()**.WriteToken**(**tokeOptions**)**;
-
-returnOk**(**new **{** Token = tokenString **})**;
-
-**}**
-
-else
-
-**{**
-
-returnUnauthorized**()**;
-
-**}**
-
-**}**
-
-**}**
+                var tokenString = new JwtSecurityTokenHandler().WriteToken(tokeOptions);
+                return Ok(new { Token = tokenString });
+            }
+            else
+            {
+                return Unauthorized();
+            }
+        }
+    }
 
 **Code Explanation**
 
