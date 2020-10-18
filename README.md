@@ -290,3 +290,494 @@ In the response section, we are going to see a 200 OK response with the JWT stri
 
 ### Part (2)
 https://code-maze.com/using-refresh-tokens-in-asp-net-core-authentication/
+
+## Refresh Tokens
+
+Let&#39;s look at the JWT based authentication workflow that we implemented in the previous parts of this series:
+
+[![](RackMultipart20201018-4-1r1b58s_html_8c66e981a472071e.png)](https://code-maze.com/wp-content/uploads/2020/06/jwt-access-token-flow-e1592744064613.png)
+
+1. First, the client authenticates with the authentication component by providing the credentials.
+2. Then, the authentication component issues the access token.
+3. After that, the client requests the resource endpoint for a protected resource by providing the access token.
+4. The resource endpoint validates the access token and provides a protected resource.
+5. Steps 3 &amp; 4 keeps on repeating until the access token expires.
+6. Once the access token expires, the client needs to authenticate with the authentication component once again and the flow repeats from step 1.
+
+Let&#39;s see how we can extend this flow.
+
+### Refresh token-based authentication workflow
+
+Refresh tokens are credentials that can be used to acquire new access tokens. When access tokens expire, we can use refresh tokens to get a new access token from the authentication component. The lifetime of a refresh token is usually set much longer compared to the lifetime of an access token.
+
+Now, we are going to introduce the refresh token to our authentication workflow:
+
+![GitHub Logo](/img/refreshtoken-diagram.png)
+
+1. First, the client authenticates with the authentication component by providing the credentials.
+2. Then, the authentication component issues the access token and the refresh token.
+3. After that, the client requests the resource endpoints for a protected resource by providing the access token.
+4. The resource endpoint validates the access token and provides a protected resource.
+5. Steps 3 &amp; 4 keeps on repeating until the access token expires.
+6. Once the access token expires, the client requests a new access token by providing the refresh token.
+7. The authentication component issues a new access token and refresh token.
+8. Steps 3 through 7 keeps on repeating until the refresh token expires.
+9. Once the refresh token expires, the client needs to authenticate with the authentication server once again and the flow repeats from step 1.
+
+Now, let&#39;s discuss why we actually need refresh tokens.
+
+## The Need for Refresh Tokens
+
+**So, why do we need both access tokens and refresh tokens?**  Why don&#39;t we just set a long expiration date, like a month or a year for the access tokens? Because, if we do that and someone manages to get hold of our access token they can use it for a long period, even if we change our password!
+
+The idea of refresh tokens is that we can make the access token short-lived so that,  **even if it is compromised, the attacker gets access only for a shorter period**. With refresh token-based flow, the authentication server issues a one time use refresh token along with the access token. The app stores the refresh token safely.
+
+Every time the app sends a request to the server it sends the access token in the Authorization header and the server can identify the app using it. Once the access token expires, the server will send a token expired response. Once the app receives the token expired response, it sends the expired access token and the refresh token to obtain a new access token and refresh token.
+
+If something goes wrong,  **the refresh token can be revoked**  which means that when the app tries to use it to get a new access token, that request will be rejected and the user will have to enter credentials once again and authenticate.
+
+Thus, refresh tokens help in a smooth authentication workflow without the need for users to submit their credentials frequently, and at the same time, without compromising the security of the app.
+
+## Implementation
+
+So far we have learned the concept of refresh tokens. Now without any delay, let&#39;s dig into the implementation part.
+
+We are going to implement refresh tokens in the application that we built in the [**earlier part of this series**](https://code-maze.com/authentication-aspnetcore-jwt-2/).
+
+### Web API
+
+There are some changes that we need to make in our Web API project.
+
+#### Data Modelling
+
+We need to move the user details into the database to implement the refresh token based flow. We have explained how to create a database from our models using the EF Core Code-First approach in our article [**ASP.NET Core Web API with EF Core Code-First Approach**](https://code-maze.com/net-core-web-api-ef-core-code-first).
+
+First, we need to modify the login model to include a refresh token and its expiry:
+
+    public class LoginModel
+    {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        public long Id { get; set; }
+        public string UserName { get; set; }
+        public string Password { get; set; }
+        public string RefreshToken { get; set; }
+        public DateTime RefreshTokenExpiryTime { get; set; }
+    }
+
+We are going to follow the steps that we discussed in the linked article to create a database from our model and add some seed data.
+
+For that, let&#39;s add a user DB context file and specify seed data in it:
+
+    public class UserContext : DbContext
+    {
+        public UserContext(DbContextOptions dbContextOptions)
+            : base(dbContextOptions)
+        {
+        }
+
+        public DbSet<LoginModel> LoginModels { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<LoginModel>().HasData(new LoginModel
+            {
+                Id = 1,
+                UserName = "johndoe",
+                Password = "def@123"
+            });
+        }
+    }
+
+Cool. Now we need to register our db context in the ConfigureServices() method in Startup.cs:
+
+    services.AddDbContext<UserContext>(opts =>
+        opts.UseSqlServer(Configuration["ConnectionString:UserDB"]));
+
+Let&#39;s also make sure that we move the database connection string into appsettings.json:
+
+    "ConnectionString": {
+      "UserDB": "server=.;database=UserDB;Integrated Security=True"
+    },
+
+The next step is generating the database from code [**using migrations**](https://code-maze.com/migrations-and-seed-data-efcore/):
+
+PM **\&gt;** Add-Migration WebApplication.Models.UserContext
+
+PM **\&gt;** update-database
+
+This will create the UserDB database and LoginModels table with seed data:
+
+[![](RackMultipart20201018-4-1r1b58s_html_9027614357082a93.png)](https://code-maze.com/wp-content/uploads/2020/06/db-and-table-created.png)
+
+Now, we need to do the credential validation against the database. We are also going to refactor the code a little bit by moving all token related logic into a separate TokenService class.
+
+#### AuthController
+
+In the AuthController, first, we need to inject the UserContext and TokenService. Then, we are going to validate user credentials against the database.
+
+Once validation is successful, we need to generate refresh token in addition to the access token and save it along with the expiry date in the database:
+
+    [Route("api/[controller]")]
+    [ApiController]
+    public class AuthController : ControllerBase
+    {
+        readonly UserContext userContext;
+        readonly ITokenService tokenService;
+
+        public AuthController(UserContext userContext, ITokenService tokenService)
+        {
+            this.userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
+            this.tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+        }
+
+        [HttpPost, Route("login")]
+        public IActionResult Login([FromBody]LoginModel loginModel)
+        {
+            if (loginModel == null)
+            {
+                return BadRequest("Invalid client request");
+            }
+
+            var user = userContext.LoginModels
+                .FirstOrDefault(u => (u.UserName == loginModel.UserName) &&
+                                        (u.Password == loginModel.Password));
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, loginModel.UserName),
+                new Claim(ClaimTypes.Role, "Manager")
+            };
+
+            var accessToken = tokenService.GenerateAccessToken(claims);
+            var refreshToken = tokenService.GenerateRefreshToken();
+
+            user.RefreshToken = refreshToken;
+            user.RefreshTokenExpiryTime = DateTime.Now.AddDays(7);
+
+            userContext.SaveChanges();
+
+            return Ok(new
+            {
+                Token = accessToken,
+                RefreshToken = refreshToken
+            });
+        }
+    }
+
+Let&#39;s also make sure to register the TokenService for [**dependency injection**](https://code-maze.com/dependency-injection-aspnet/) in ConfigureServices() method in Startp.cs:
+
+    services.AddTransient<ITokenService, TokenService>();
+
+#### TokenService
+
+The logic for generating the access token, refresh token, and getting user details from the expired token goes into the TokenService class.
+
+First, let&#39;s define the ITokenService interface:
+
+public interface ITokenService
+
+    public interface ITokenService
+    {
+        string GenerateAccessToken(IEnumerable<Claim> claims);
+        string GenerateRefreshToken();
+        ClaimsPrincipal GetPrincipalFromExpiredToken(string token);
+    }
+
+Then, we are going to implement the TokenService class:
+
+    public class TokenService : ITokenService
+    {
+        public string GenerateAccessToken(IEnumerable<Claim> claims)
+        {
+            var secretKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("superSecretKey@345"));
+            var signinCredentials = new SigningCredentials(secretKey, SecurityAlgorithms.HmacSha256);
+
+            var tokeOptions = new JwtSecurityToken(
+                issuer: "http://localhost:5000",
+                audience: "http://localhost:5000",
+                claims: claims,
+                expires: DateTime.Now.AddMinutes(5),
+                signingCredentials: signinCredentials
+            );
+
+            var tokenString = new JwtSecurityTokenHandler().WriteToken(tokeOptions);
+            return tokenString;
+        }
+
+        public string GenerateRefreshToken()
+        {
+            var randomNumber = new byte[32];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomNumber);
+                return Convert.ToBase64String(randomNumber);
+            }
+        }
+
+        public ClaimsPrincipal GetPrincipalFromExpiredToken(string token)
+        {
+            var tokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateAudience = false, //you might want to validate the audience and issuer depending on your use case
+                ValidateIssuer = false,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("superSecretKey@345")),
+                ValidateLifetime = false //here we are saying that we don't care about the token's expiration date
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            SecurityToken securityToken;
+            var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out securityToken);
+            var jwtSecurityToken = securityToken as JwtSecurityToken;
+            if (jwtSecurityToken == null || !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+                throw new SecurityTokenException("Invalid token");
+
+            return principal;
+
+        }
+    }
+
+Here, we have created 3 methods. GenerateAccessToken() contains the logic to generate the access token. We have moved the existing code from AuthController to this method.
+
+GenerateRefreshToken() contains the logic to generate the refresh token. We use the RandomNumberGenerator class to generate a cryptographic random number for this purpose.
+
+GetPrincipalFromExpiredToken() is used to get the user principal from the expired access token. We make use of the ValidateToken() method of JwtSecurityTokenHandler class for this purpose. This method validates the token and returns the ClaimsPrincipal object.
+
+#### TokenController
+
+Next is the implementation of the TokenController.
+
+    [Route("api/[controller]")]
+    [ApiController]
+    public class TokenController : ControllerBase
+    {
+        readonly UserContext userContext;
+        readonly ITokenService tokenService;
+
+        public TokenController(UserContext userContext, ITokenService tokenService)
+        {
+            this.userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
+            this.tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+        }
+
+        [HttpPost]
+        [Route("refresh")]
+        public IActionResult Refresh(TokenApiModel tokenApiModel)
+        {
+            if (tokenApiModel is null)
+            {
+                return BadRequest("Invalid client request");
+            }
+
+            string accessToken = tokenApiModel.AccessToken;
+            string refreshToken = tokenApiModel.RefreshToken;
+
+            var principal = tokenService.GetPrincipalFromExpiredToken(accessToken);
+            var username = principal.Identity.Name; //this is mapped to the Name claim by default
+
+            var user = userContext.LoginModels.SingleOrDefault(u => u.UserName == username);
+
+            if (user == null || user.RefreshToken != refreshToken || user.RefreshTokenExpiryTime <= DateTime.Now)
+            {
+                return BadRequest("Invalid client request");
+            }
+
+            var newAccessToken = tokenService.GenerateAccessToken(principal.Claims);
+            var newRefreshToken = tokenService.GenerateRefreshToken();
+
+            user.RefreshToken = newRefreshToken;
+            userContext.SaveChanges();
+
+            return new ObjectResult(new
+            {
+                accessToken = newAccessToken,
+                refreshToken = newRefreshToken
+            });
+        }
+
+        [HttpPost, Authorize]
+        [Route("revoke")]
+        public IActionResult Revoke()
+        {
+            var username = User.Identity.Name;
+
+            var user = userContext.LoginModels.SingleOrDefault(u => u.UserName == username);
+            if (user == null) return BadRequest();
+
+            user.RefreshToken = null;
+
+            userContext.SaveChanges();
+
+            return NoContent();
+        }
+    }
+
+Here, we implement a refresh endpoint, which gets the user information from the expired access token and validates the refresh token against the user. Once the validation is successful, we generate a new access token and refresh token and the new refresh token is saved against the user in DB.
+
+We have also implemented a revoke endpoint which invalidates the refresh token.
+
+Our Web API project is now ready.
+
+### Client App
+
+We need to make some changes in our Angular client app as well. In the LoginComponent, we need to save the refresh token into the local storage along with the access token:
+
+public login = **(**form: NgForm**)**=\&gt; **{**
+
+const credentials = JSON.stringify**(**form.value**)**;
+
+this.http.post**(**&quot;http://localhost:5000/api/auth/login&quot;,
+
+credentials, **{**
+
+headers: newHttpHeaders**({**
+
+&quot;Content-Type&quot;: &quot;application/json&quot;
+
+**})**
+
+**})**.subscribe**(**response =\&gt; **{**
+
+const token = **(\&lt;**any **\&gt;** response**)**.token;
+
+const refreshToken = **(\&lt;**any **\&gt;** response**)**.refreshToken;
+
+localStorage.setItem**(**&quot;jwt&quot;, token**)**;
+
+localStorage.setItem**(**&quot;refreshToken&quot;, refreshToken**)**;
+
+this.invalidLogin = false;
+
+this.router.navigate**([**&quot;/&quot;**])**;
+
+**}** , err =\&gt; **{**
+
+this.invalidLogin = true;
+
+**})**;
+
+**}**
+
+Now, let&#39;s modify the AuthGuard service.
+
+asynccanActivate**()****{**
+
+const token = localStorage.getItem**(**&quot;jwt&quot;**)**;
+
+if**(**token &amp;&amp; !this.jwtHelper.isTokenExpired**(**token**))****{**
+
+console.log**(**this.jwtHelper.decodeToken**(**token**))**;
+
+returntrue;
+
+**}**
+
+const isRefreshSuccess = awaitthis.tryRefreshingTokens**(**token**)**;
+
+if**(**!isRefreshSuccess**)****{**
+
+this.router.navigate**([**&quot;login&quot;**])**;
+
+**}**
+
+return isRefreshSuccess;
+
+**}**
+
+privateasynctryRefreshingTokens**(**token: string**)**: Promise **\&lt;** boolean **\&gt;**** {**
+
+// Try refreshing tokens using refresh token
+
+const refreshToken: string = localStorage.getItem**(**&quot;refreshToken&quot;**)**;
+
+const credentials = JSON.stringify**({** accessToken: token, refreshToken: refreshToken **})**;
+
+let isRefreshSuccess: boolean;
+
+try **{**
+
+const response = awaitthis.http.post**(**&quot;http://localhost:5000/api/token/refresh&quot;, credentials, **{**
+
+headers: newHttpHeaders**({**
+
+&quot;Content-Type&quot;: &quot;application/json&quot;
+
+**})**,
+
+observe: &#39;response&#39;
+
+**})**.toPromise**()**;
+
+// If token refresh is successful, set new tokens in local storage.
+
+const newToken = **(\&lt;**any **\&gt;** response**)**.body.accessToken;
+
+const newRefreshToken = **(\&lt;**any **\&gt;** response**)**.body.refreshToken;
+
+localStorage.setItem**(**&quot;jwt&quot;, newToken**)**;
+
+localStorage.setItem**(**&quot;refreshToken&quot;, newRefreshToken**)**;
+
+isRefreshSuccess = true;
+
+**}**
+
+catch**(**ex**)****{**
+
+isRefreshSuccess = false;
+
+**}**
+
+return isRefreshSuccess;
+
+**}**
+
+Here, once the access token is expired, we try refreshing it using the refresh token. If the refresh is successful, we store the new set of tokens in the local storage. If the refresh action does not work, we redirect the user back to the login page.
+
+Finally, in the HomeComponent, we need to remove refresh token along with access token during logout.
+
+public logOut = **()**=\&gt; **{**
+
+localStorage.removeItem**(**&quot;jwt&quot;**)**;
+
+localStorage.removeItem**(**&quot;refreshToken&quot;**)**;
+
+**}**
+
+That&#39;s it. We have implemented refresh tokens in our application. In the next section, we are going to test the functionality.
+
+## Testing
+
+First, we are going to test the Web API using Postman. Let&#39;s invoke /api/auth/login by supplying the user credentials:
+
+[![](RackMultipart20201018-4-1r1b58s_html_6f1dd03eb56a641b.png)](https://code-maze.com/wp-content/uploads/2020/06/postman-login-2.png)
+
+We can see that now the endpoint returns both access token and refresh token.
+
+This updates both refresh token and expiry time in the database:
+
+[![](RackMultipart20201018-4-1r1b58s_html_13515774d0a8e56a.png)](https://code-maze.com/wp-content/uploads/2020/06/database-table-1.png)
+
+Now, let&#39;s wait till the access token expires. Remember, we had set the access token expiry as 5 minutes.
+
+Once the access token is expired, we can see our protected endpoints return 401- Unauthorized response. We can verify that by accessing /api/customers.
+
+Now, we are going to refresh our access token using the refresh token. For that let&#39;s do a POST request to /api/token/refresh with both the tokens that we received earlier:
+
+[![](RackMultipart20201018-4-1r1b58s_html_c44ff69ed673594f.png)](https://code-maze.com/wp-content/uploads/2020/06/postman-refresh-1.png)
+
+This will return a new set of tokens which can be used further.
+
+We can continue this cycle until the refresh token expires. In case we want to revoke the refresh token, we can do so by invoking the /api/token/revoke endpoint. This will require users to provide credentials once the current access token is expired. This endpoint is implemented as a security measure and we can make use of this in case current tokens are compromised.
+
+Now, let&#39;s test the client app.
+
+Earlier, the client app used to redirect us to the login page once the access token is expired. Now, we can see that once the access token is expired, the app automatically refreshes the token and keeps the session alive. Users don&#39;t have to know about these steps happening in the background and they can continue working on the app without any interruptions. They will need to log in again only once the refresh token is expired, which gives them a longer window to work with.
+
+By using an access token with a short expiry (typically, a few minutes) and a refresh token with a longer expiry (typically, a few days), we can make our application secure and at the same time give our users a seamless experience. If something goes wrong, we always have the option to revoke refresh tokens.
