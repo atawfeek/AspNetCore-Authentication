@@ -1,4 +1,4 @@
-﻿namespace AspNetCore.Authentication.Web.Models
+﻿namespace AspNetCore.Authentication.Identity.Token.Models
 {
     public class AuthOptions
     {

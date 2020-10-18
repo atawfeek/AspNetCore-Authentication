@@ -5,7 +5,9 @@ VisualStudioVersion = 16.0.30128.74
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{78A7346C-E505-470B-B5BD-BDB85C683562}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AspNetCore.Authentication.Web", "src\Api\AspNetCore.Authentication.Web.csproj", "{3179CD4F-BE1C-4236-A34B-7B19DAE11838}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AspNetCore.Authentication.Web", "src\Api\AspNetCore.Authentication.Web.csproj", "{3179CD4F-BE1C-4236-A34B-7B19DAE11838}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AspNetCore.Authentication.Identity.Token", "src\Identity.Token\AspNetCore.Authentication.Identity.Token.csproj", "{2CF6DF9A-2238-4EA8-A586-3EC3EF27C491}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,12 +19,17 @@ Global
 		{3179CD4F-BE1C-4236-A34B-7B19DAE11838}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3179CD4F-BE1C-4236-A34B-7B19DAE11838}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3179CD4F-BE1C-4236-A34B-7B19DAE11838}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2CF6DF9A-2238-4EA8-A586-3EC3EF27C491}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2CF6DF9A-2238-4EA8-A586-3EC3EF27C491}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2CF6DF9A-2238-4EA8-A586-3EC3EF27C491}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2CF6DF9A-2238-4EA8-A586-3EC3EF27C491}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{3179CD4F-BE1C-4236-A34B-7B19DAE11838} = {78A7346C-E505-470B-B5BD-BDB85C683562}
+		{2CF6DF9A-2238-4EA8-A586-3EC3EF27C491} = {78A7346C-E505-470B-B5BD-BDB85C683562}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {128DAC1D-E7AF-4555-94AE-1EB2C31223E3}

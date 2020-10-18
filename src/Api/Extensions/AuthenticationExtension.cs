@@ -1,4 +1,4 @@
-﻿using AspNetCore.Authentication.Web.Models;
+﻿using AspNetCore.Authentication.Identity.Token.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
