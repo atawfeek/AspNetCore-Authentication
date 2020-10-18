@@ -2,8 +2,6 @@
 
 https://code-maze.com/authentication-aspnetcore-jwt-1/
 
-###### There is an application that has a login form. A user enters its username, password and presses the login button. After pressing the login button, a client (eg web browser) sends the user’s data to the server’s API endpoint.
-
 **The Big Picture**
 
 Before we get into the implementation of authentication and authorization, let&#39;s have a quick look at the big picture. There is an application that has a login form. A user enters its username, password and presses the login button. After pressing the login button, a client (eg web browser) sends the user&#39;s data to the server&#39;s  **API**  endpoint.[![](RackMultipart20201018-4-1t03ge6_html_3fff35da62b35a18.png)](https://code-maze.com/wp-content/uploads/2018/04/picture_1.png)When the server validates the user&#39;s credentials and confirms that the user is valid, it&#39;s going to send an encoded JWT to the client. JSON web token is basically a JavaScript object that can contain some attributes of the logged-in user. It can contain a username, user subject, user roles or some other useful information.
