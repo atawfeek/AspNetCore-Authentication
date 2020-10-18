@@ -28,17 +28,17 @@ The first part of JWT is the Header, which is a JSON object encoded in the base6
 
 Header Sample:
 
-`
-**{**
 
-&quot;alg&quot;: &quot;HS256&quot;,
+ **{**
 
-&quot;typ&quot;: &quot;JWT&quot;
+ &quot;alg&quot;: &quot;HS256&quot;,
 
-**}**
+ &quot;typ&quot;: &quot;JWT&quot;
 
-**Payload**
-`
+ **}**
+
+ **Payload**
+
 
 After the Header, we have a Payload which is also a JavaScript object encoded in the base64 format. The payload contains some attributes about the logged-in user. For example, it can contain user id, user subject, and the information about whether a user is an admin user or not.  **JSON web tokens are not encrypted**  and can be decoded with any base64 decoder so please  **never include sensitive information in the Payload**.
 
