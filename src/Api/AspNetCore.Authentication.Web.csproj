@@ -8,5 +8,9 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.1.9" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Identity.Token\AspNetCore.Authentication.Identity.Token.csproj" />
+  </ItemGroup>
+
 
 </Project>

@@ -1,5 +1,5 @@
+using AspNetCore.Authentication.Identity.Token.Models;
 using AspNetCore.Authentication.Web.Extensions;
-using AspNetCore.Authentication.Web.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -23,6 +23,7 @@ namespace AspNetCore.Authentication.Web
             services.Configure<AuthOptions>(Configuration.GetSection(
                                         AuthOptions.Auth));
 
+            services.AddScopedServices();
             services.AddJwtAuthentication();
             services.AddControllers();
         }
